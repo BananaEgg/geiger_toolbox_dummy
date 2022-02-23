@@ -72,6 +72,28 @@ class GeigerApiConnector {
     return temp?.getValue('en');
   }
 
+  
+  /// Prepare a root node with given path
+  Future<bool> prepareRoot(List<String> rootPath, String? owner) async {
+    String currentRoot = '';
+    int currentIndex = 0;
+    while (currentIndex < rootPath.length) {
+      try {
+        await storageController!.addOrUpdate(NodeImpl(rootPath[currentIndex],
+            owner ?? '', currentRoot == '' ? ':' : currentRoot));
+        currentRoot = '$currentRoot:${rootPath[currentIndex]}';
+        currentIndex++;
+      } catch (e) {
+        log('Failed to prepare the path: $currentRoot:${rootPath[currentIndex]}');
+        log(e.toString());
+        return false;
+      }
+    }
+    Node testNode = await storageController!.get(currentRoot);
+    log('Root: ${testNode.toString()}');
+    return true;
+  }
+
   // Get an instance of GeigerStorage to read/write data
   Future<bool> connectToLocalStorage() async {
     log('Trying to connect to the GeigerStorage');
@@ -165,23 +187,6 @@ class GeigerApiConnector {
     return pluginListener!.getAllMessages();
   }
 
-  // Send some device sensor data to GeigerToolbox
-  Future<bool> sendDeviceSensorData(String sensorId, String value) async {
-    String nodePath =
-        ':Device:$currentDeviceId:$pluginId:data:metrics:$sensorId';
-    try {
-      Node node = await storageController!.get(nodePath);
-      node.addOrUpdateValue(NodeValueImpl('GEIGERValue', value));
-      await storageController!.addOrUpdate(node);
-      log('Updated node: ');
-      log(node.toString());
-      return true;
-    } catch (e) {
-      log('Failed to get node $nodePath');
-      log(e.toString());
-      return false;
-    }
-  }
 
   Future<void> readData() async {
     String nodePath = ':Device:data';
@@ -195,135 +200,6 @@ class GeigerApiConnector {
     }
   }
 
-  // Send some user sensor data to GeigerToolbox
-  Future<bool> sendUserSensorData(String sensorId, String value) async {
-    String nodePath = ':Users:$currentUserId:$pluginId:data:metrics:$sensorId';
-    try {
-      Node node = await storageController!.get(nodePath);
-      node.addOrUpdateValue(NodeValueImpl('GEIGERValue', value));
-      await storageController!.addOrUpdate(node);
-      log('Updated node: ');
-      log(node.toString());
-      return true;
-    } catch (e) {
-      log('Failed to get node $nodePath');
-      log(e.toString());
-      return false;
-    }
-  }
-
-  // Prepare the device sensor root
-  Future<bool> prepareDeviceSensorRoot() async {
-    log('Prepare sensor root for Device');
-    try {
-      await storageController!.addOrUpdate(
-        NodeImpl('Device', '', ':'),
-      );
-      await storageController!.addOrUpdate(
-        NodeImpl(currentDeviceId!, '', ':Device'),
-      );
-      await storageController!.addOrUpdate(
-        NodeImpl(pluginId, '', ':Device:$currentDeviceId'),
-      );
-      await storageController!.addOrUpdate(
-        NodeImpl('data', '', ':Device:$currentDeviceId:$pluginId'),
-      );
-      await storageController!.addOrUpdate(
-        NodeImpl('metrics', '', ':Device:$currentDeviceId:$pluginId:data'),
-      );
-      log('Root Device has been prepared');
-      Node testNode = await storageController!
-          .get(':Device:$currentDeviceId:$pluginId:data:metrics');
-      log('Root: ${testNode.toString()}');
-      return true;
-    } catch (e) {
-      log('Failed to prepare the sensor root node Device');
-      log(e.toString());
-      return false;
-    }
-  }
-
-  // Prepare the user sensor root
-  // Future<bool> prepareUserSensorRoot() async {
-  //   log('Prepare sensor root for Users');
-  //   try {
-  //     await storageController!.addOrUpdate(
-  //       NodeImpl('Users', '', ':'),
-  //     );
-  //     await storageController!.addOrUpdate(
-  //       NodeImpl(currentUserId!, '', ':Users'),
-  //     );
-  //     await storageController!.addOrUpdate(
-  //       NodeImpl(pluginId, '', ':Users:$currentUserId'),
-  //     );
-  //     await storageController!.addOrUpdate(
-  //       NodeImpl('data', '', ':Users:$currentUserId:$pluginId'),
-  //     );
-  //     await storageController!.addOrUpdate(
-  //       NodeImpl('metrics', '', ':Users:$currentUserId:$pluginId:data'),
-  //     );
-  //     log('Root Users has been prepared');
-  //     Node testNode = await storageController!
-  //         .get(':Users:$currentUserId:$pluginId:data:metrics');
-  //     log('Root: ${testNode.toString()}');
-  //     return true;
-  //   } catch (e) {
-  //     log('Failed to prepare the sensor root node Users');
-  //     log(e.toString());
-  //     return false;
-  //   }
-  // }
-
-  // Future<bool> addUserSensorNode(SensorDataModel sensorDataModel) async {
-  //   return await _addSensorNode(sensorDataModel, 'Users');
-  // }
-
-  // Future<bool> addDeviceSensorNode(SensorDataModel sensorDataModel) async {
-  //   return await _addSensorNode(sensorDataModel, 'Device');
-  // }
-
-  // Future<bool> _addSensorNode(
-  //     SensorDataModel sensorDataModel, String rootType) async {
-  //   String rootPath =
-  //       ':$rootType:${rootType == 'Users' ? currentUserId : currentDeviceId}:$pluginId:data:metrics';
-  //   log('Before adding a sensor node ${sensorDataModel.sensorId}');
-  //   try {
-  //     Node node = NodeImpl(sensorDataModel.sensorId, '', rootPath);
-  //     await node.addOrUpdateValue(
-  //       NodeValueImpl('name', sensorDataModel.name),
-  //     );
-  //     await node.addOrUpdateValue(
-  //       NodeValueImpl('minValue', sensorDataModel.minValue),
-  //     );
-  //     await node.addOrUpdateValue(
-  //       NodeValueImpl('maxValue', sensorDataModel.maxValue),
-  //     );
-  //     await node.addOrUpdateValue(
-  //       NodeValueImpl('valueType', sensorDataModel.valueType),
-  //     );
-  //     await node.addOrUpdateValue(
-  //       NodeValueImpl('flag', sensorDataModel.flag),
-  //     );
-  //     await node.addOrUpdateValue(
-  //       NodeValueImpl('threatsImpact', sensorDataModel.threatsImpact),
-  //     );
-  //     log('A node has been craeted');
-  //     log(node.toString());
-  //     try {
-  //       await storageController!.addOrUpdate(node);
-  //       log('After adding a sensor node ${sensorDataModel.sensorId}');
-  //       return true;
-  //     } catch (e2) {
-  //       log('Failed to update Storage');
-  //       log(e2.toString());
-  //       return false;
-  //     }
-  //   } catch (e) {
-  //     log('Failed to add a sensor node ${sensorDataModel.sensorId}');
-  //     log(e.toString());
-  //     return false;
-  //   }
-  // }
 
   Future<String?> readGeigerValueOfUserSensor(
       String _pluginId, String sensorId) async {
@@ -346,6 +222,27 @@ class GeigerApiConnector {
     } catch (e) {
       log('Failed to get value of node at $nodePath');
       log(e.toString());
+    }
+  }
+
+    /// Send a data node which include creating a new node and write the data
+  Future<bool> sendDataNode(
+      String nodePath, List<String> keys, List<String> values) async {
+    if (keys.length != values.length) {
+      log('The size of keys and values must be the same');
+      return false;
+    }
+    try {
+      Node node = NodeImpl(nodePath, '');
+      for (var i = 0; i < keys.length; i++) {
+        await node.addValue(NodeValueImpl(keys[i], values[i]));
+      }
+      await storageController!.addOrUpdate(node);
+      return true;
+    } catch (e) {
+      log('Failed to send a data node: $nodePath');
+      log(e.toString());
+      return false;
     }
   }
 }
